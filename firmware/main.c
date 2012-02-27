@@ -44,7 +44,7 @@ uchar usbFunctionSetup(uchar data[8]) {
 	if (data[1] == USBASP_FUNC_CONNECT) {
 
 		/* set SCK speed */
-		if ((PINC & (1 << PC2)) == 0) {
+		if (0 && (PINC & (1 << PC2)) == 0) {
 			ispSetSCKOption(USBASP_ISP_SCK_8);
 		} else {
 			ispSetSCKOption(prog_sck);
@@ -129,6 +129,7 @@ uchar usbFunctionSetup(uchar data[8]) {
 		replyBuffer[0] = 0;
 		len = 1;
 
+#if 0
 	} else if (data[1] == USBASP_FUNC_TPI_CONNECT) {
 		tpi_dly_cnt = data[2] | (data[3] << 8);
 
@@ -183,6 +184,7 @@ uchar usbFunctionSetup(uchar data[8]) {
 		prog_nbytes = (data[7] << 8) | data[6];
 		prog_state = PROG_STATE_TPI_WRITE;
 		len = 0xff; /* multiple out */
+#endif
 	
 	} else if (data[1] == USBASP_FUNC_GETCAPABILITIES) {
 		replyBuffer[0] = USBASP_CAP_0_TPI;
@@ -207,6 +209,7 @@ uchar usbFunctionRead(uchar *data, uchar len) {
 		return 0xff;
 	}
 
+#if 0
 	/* fill packet TPI mode */
 	if(prog_state == PROG_STATE_TPI_READ)
 	{
@@ -214,6 +217,7 @@ uchar usbFunctionRead(uchar *data, uchar len) {
 		prog_address += len;
 		return len;
 	}
+#endif
 
 	/* fill packet ISP mode */
 	for (i = 0; i < len; i++) {
@@ -244,6 +248,7 @@ uchar usbFunctionWrite(uchar *data, uchar len) {
 		return 0xff;
 	}
 
+#if 0
 	if (prog_state == PROG_STATE_TPI_WRITE)
 	{
 		tpi_write_block(prog_address, data, len);
@@ -256,6 +261,7 @@ uchar usbFunctionWrite(uchar *data, uchar len) {
 		}
 		return 0;
 	}
+#endif
 
 	for (i = 0; i < len; i++) {
 
@@ -304,13 +310,12 @@ int main(void) {
 	uchar i, j;
 
 	/* no pullups on USB and ISP pins */
-	PORTD = 0;
+	PORTD = (1 << PD6);
 	PORTB = 0;
-	/* all outputs except PD2 = INT0 */
-	DDRD = ~(1 << 2);
 
 	/* output SE0 for USB reset */
-	DDRB = ~0;
+	DDRD = (1 << PD3) | (1 << PD5) | (1 << PD6);
+
 	j = 0;
 	/* USB Reset by device only required on Watchdog Reset */
 	while (--j) {
@@ -320,11 +325,12 @@ int main(void) {
 			;
 	}
 	/* all USB and ISP pins inputs */
-	DDRB = 0;
+	/* all outputs except PD2 = INT0; PD5(-) and PD6(+) = LED high w/o resistor */
+	DDRD = (1 << PD5) | (1 << PD6);
 
-	/* all inputs except PC0, PC1 */
-	DDRC = 0x03;
-	PORTC = 0xfe;
+	/* all inputs */
+	DDRC = 0x0;
+	PORTC = 0x0;
 
 	/* init timer */
 	clockInit();
@@ -333,7 +339,9 @@ int main(void) {
 	usbInit();
 	sei();
 	for (;;) {
+		ledRedOff();
 		usbPoll();
+		ledRedOn();
 	}
 	return 0;
 }
